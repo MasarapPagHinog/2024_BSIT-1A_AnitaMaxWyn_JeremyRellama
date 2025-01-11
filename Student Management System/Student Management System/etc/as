@@ -1,0 +1,248 @@
+//////////////////////
+
+
+
+<?php
+require('../database.php'); // Ensure this initializes $conn using mysqli
+require('../signin/session_check.php');
+
+// Check if a course is selected
+$selected_course = isset($_GET['course']) ? urldecode($_GET['course']) : null;
+
+// Initialize students array
+$students = [];
+
+// If a course is selected, fetch students in that course
+if ($selected_course) {
+    $student_query = "SELECT * FROM students WHERE course = ?";
+    $stmt = mysqli_prepare($conn, $student_query);
+    mysqli_stmt_bind_param($stmt, "s", $selected_course);
+    mysqli_stmt_execute($stmt);
+    $student_result = mysqli_stmt_get_result($stmt);
+    if ($student_result) {
+        $students = mysqli_fetch_all($student_result, MYSQLI_ASSOC);
+    } else {
+        echo "Error fetching students: " . mysqli_error($conn);
+    }
+} else {
+    echo "No course selected.";
+    exit;
+}
+
+// Group students by year level
+$students_by_year = [];
+foreach ($students as $student) {
+    $year = $student['year'];
+    if (!isset($students_by_year[$year])) {
+        $students_by_year[$year] = [];
+    }
+    $students_by_year[$year][] = $student;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Students in <?= htmlspecialchars($selected_course); ?></title>
+    <link rel="stylesheet" href="view_students.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Quicksand:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+    </style>
+</head>
+<body>
+    <style>
+        .action_btn_container {
+            display: flex;
+            align-items: center;
+            gap: 2em;
+        }
+    </style>
+    <main>
+        <aside>
+            <div class="nav_group">
+                <div class="header">
+                    <h2>Student Management System</h2>
+                    <p>Manage your students and courses efficiently.</p>
+                </div>
+                <div class="nav_list">
+                    <ul>
+                        <li class="icon_dashboard"><a href="students.php">Courses</a></li>
+                        <li class="icon_students"><a href="">Students</a></li>
+                        <li class="icon_teachers"><a href="">Teachers</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="user_profile_container">
+                <div class="user-profile">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRUuR6lY1HPFS4Q_R2A5r70ECdchXmR_n1b8g&s" alt="Profile">
+                    <div class="name">
+                        <h3><?= htmlspecialchars($user['username']); ?></h3>
+                        <p><?= htmlspecialchars(ucfirst($user['role'])); ?></p>
+                    </div>
+                </div>
+
+                <div class="logout">
+                    <form method="POST" action="../signin/logout.php">
+                        <button type="submit" class="logout-btn">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </aside>
+
+        <section>
+            <div class="flex">
+                <div class="group_header">
+                    <h1>Students in <span><?= htmlspecialchars($selected_course); ?> </span></h1>
+                    <p>Here are the students grouped by year level:</p>
+                </div>
+
+                <div class="action_btn_container">
+
+                <div class="add_student_oncourse">
+                    <?php if($user['role'] === 'admin'): ?>
+                        <button type="button" onclick="window.location.href='add_student.php?course=<?= urlencode($selected_course); ?>'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="3.2em" height="3.2em" viewBox="0 0 24 24"><path fill="currentColor" d="M12.692 11.335q.552-.589.776-1.364t.224-1.587t-.224-1.586t-.776-1.364q1.135.104 1.875.95q.74.847.74 2t-.74 2t-1.875.95m5 7.281v-1.692q0-.735-.265-1.4t-.838-1.096q1.025.315 1.872.903q.847.587.847 1.593v1.693zm1.616-6.115v-2h-2v-1h2v-2h1v2h2v1h-2v2zM8.692 11.385q-1.237 0-2.119-.882t-.88-2.119t.88-2.118t2.12-.882t2.118.882t.881 2.118t-.881 2.12t-2.119.88m-7 7.232v-1.647q0-.619.36-1.158q.361-.54.971-.838q1.415-.679 2.833-1.018q1.417-.34 2.836-.34t2.837.34t2.832 1.018q.61.298.97.838q.361.539.361 1.158v1.647zm7-8.231q.825 0 1.413-.588t.587-1.412t-.587-1.413t-1.413-.587t-1.412.587t-.588 1.413t.588 1.412t1.412.588m-6 7.23h12v-.646q0-.332-.214-.625q-.215-.292-.594-.494q-1.234-.598-2.545-.916t-2.647-.318t-2.646.318t-2.546.916q-.379.202-.593.494t-.215.625zm6 0"/></svg>
+                        </button>
+                    <?php endif; ?>
+                </div>
+
+                <div class="edit_table_btn">
+                <?php if($user['role'] === 'admin'): ?>
+                    <button type="button" id="edit-students-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="3.2em" height="3.2em" viewBox="0 0 24 24"><g class="edit-outline"><g fill="currentColor" fill-rule="evenodd" class="Vector" clip-rule="evenodd"><path d="M2 6.857A4.857 4.857 0 0 1 6.857 2H12a1 1 0 1 1 0 2H6.857A2.857 2.857 0 0 0 4 6.857v10.286A2.857 2.857 0 0 0 6.857 20h10.286A2.857 2.857 0 0 0 20 17.143V12a1 1 0 1 1 2 0v5.143A4.857 4.857 0 0 1 17.143 22H6.857A4.857 4.857 0 0 1 2 17.143z"/><path d="m15.137 13.219l-2.205 1.33l-1.033-1.713l2.205-1.33l.003-.002a1.2 1.2 0 0 0 .232-.182l5.01-5.036a3 3 0 0 0 .145-.157c.331-.386.821-1.15.228-1.746c-.501-.504-1.219-.028-1.684.381a6 6 0 0 0-.36.345l-.034.034l-4.94 4.965a1.2 1.2 0 0 0-.27.41l-.824 2.073a.2.2 0 0 0 .29.245l1.032 1.713c-1.805 1.088-3.96-.74-3.18-2.698l.825-2.072a3.2 3.2 0 0 1 .71-1.081l4.939-4.966l.029-.029c.147-.15.641-.656 1.24-1.02c.327-.197.849-.458 1.494-.508c.74-.059 1.53.174 2.15.797a2.9 2.9 0 0 1 .845 1.75a3.15 3.15 0 0 1-.23 1.517c-.29.717-.774 1.244-.987 1.457l-5.01 5.036q-.28.281-.62.487m4.453-7.126s-.004.003-.013.006z"/></g></g></svg>
+                    </button>
+                    <?php endif; ?>
+                </div>
+
+                </div>
+
+                <?php if ($user['role'] === 'student'): ?>
+                <div class="enroll_yourself_btn">
+                    <!-- //<?php if ($user['role'] === 'student'): ?> -->
+                        <button type="button">
+                            Apply to this course
+                        </button>
+                       <!-- // <?php endif; ?> -->
+
+                </div>
+                <?php endif; ?>
+
+
+
+
+            </div>
+
+            <?php if (!empty($students_by_year)): ?>
+                <?php foreach ($students_by_year as $year => $students_in_year): ?>
+                    <div class="year-container">
+                        <div class="year-header"><h2>Year Level: <?= htmlspecialchars($year); ?></h2></div>
+
+                        <div class="student-list">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Last Name</th>
+                                        <th>Middle Name</th>
+                                        <th>Age</th>
+                                        <th>Phone Number</th>
+                                        <th>Address</th>
+                                        <th>Year</th>
+                                        <th>GWA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($students_in_year as $student): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($student['student_id']); ?></td>
+                                            <td><?= htmlspecialchars($student['first_name']); ?></td>
+                                            <td><?= htmlspecialchars($student['last_name']); ?></td>
+                                            <td><?= htmlspecialchars($student['middle_name']); ?></td>
+                                            <td><?= htmlspecialchars($student['age']); ?></td>
+                                            <td><?= htmlspecialchars($student['phone_number']); ?></td>
+                                            <td><?= htmlspecialchars($student['address']); ?></td>
+                                            <td><?= htmlspecialchars($student['year']); ?></td>
+                                            <td><?= htmlspecialchars($student['GWA']); ?></td>
+                                            <td class="remove-btn-container" style="display: none;">
+                                                <button 
+                                                    class="remove-student-btn" 
+                                                    data-student-id="<?= htmlspecialchars($student['student_id']); ?>">Remove</button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="no-students">
+                    <h3>No students available in this course.</h3>
+                </div>
+            <?php endif; ?>
+
+            <div class="back-button">
+                <button onclick="window.location.href='students.php'">Back to Courses</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const editBtn = document.getElementById('edit-students-btn');
+            const removeBtnContainers = document.querySelectorAll('.remove-btn-container');
+
+            let isEditMode = false;
+
+            // Toggle edit mode
+            editBtn.addEventListener('click', function () {
+                isEditMode = !isEditMode;
+
+                // Show or hide the "Remove" buttons
+                removeBtnContainers.forEach(container => {
+                    container.style.display = isEditMode ? 'table-cell' : 'none';
+                });
+
+                // Update button text
+                editBtn.textContent = isEditMode ? 'Finish Editing' : 'Edit Students';
+            });
+
+            // Attach click event to dynamically created "Remove" buttons
+            document.querySelectorAll('.remove-student-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const studentId = this.getAttribute('data-student-id');
+
+                    if (confirm('Are you sure you want to remove this student?')) {
+                        fetch('remove_student.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ student_id: studentId }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Student removed successfully!');
+                                location.reload(); // Reload the page after removal
+                            } else {
+                                alert('Failed to remove student: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred while processing your request. Please try again.');
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
